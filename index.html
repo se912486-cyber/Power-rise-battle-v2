@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Power Rise Battle V2</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  overflow:hidden;
+  background:#111;
+  font-family:Arial,sans-serif;
+  color:white;
+  touch-action:none;
+}
+canvas{
+  display:block;
+  width:100vw;
+  height:100vh;
+  background:#18251c;
+}
+#menu{
+  position:fixed;
+  inset:0;
+  background:linear-gradient(#111827,#172554);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  z-index:10;
+}
+h1{
+  font-size:42px;
+  margin:5px;
+  text-shadow:0 0 15px #38bdf8;
+}
+.subtitle{color:#cbd5e1;margin-bottom:20px}
+button{
+  border:0;
+  border-radius:12px;
+  padding:14px 25px;
+  margin:7px;
+  font-size:18px;
+  font-weight:bold;
+  background:#2563eb;
+  color:white;
+}
+button:active{transform:scale(.95)}
+.characters{
+  display:flex;
+  gap:10px;
+  margin:10px;
+}
+.char{
+  width:90px;
+  height:90px;
+  border:2px solid #475569;
+  border-radius:15px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:#1e293b;
+}
+.char.selected{
+  border-color:#38bdf8;
+  box-shadow:0 0 15px #38bdf8;
+}
+.face{
+  width:35px;
+  height:35px;
+  border-radius:50%;
+  background:#f2c29b;
+  margin-bottom:5px;
+}
+#hud{
+  position:fixed;
+  top:10px;
+  left:10px;
+  right:10px;
+  z-index:5;
+  pointer-events:none;
+}
+.bar{
+  width:190px;
+  height:18px;
+  border:2px solid white;
+  border-radius:10px;
+  overflow:hidden;
+  background:#333;
+}
+#health{
+  height:100%;
+  width:100%;
+  background:#22c55e;
+}
+#power{
+  height:100%;
+  width:100%;
+  background:#a855f7;
+}
+.info{
+  background:#0009;
+  padding:6px 10px;
+  border-radius:8px;
+  margin-top:4px;
+  display:inline-block;
+}
+#controls{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:4;
+}
+#joystick{
+  position:absolute;
+  left:25px;
+  bottom:25px;
+  width:125px;
+  height:125px;
+  border-radius:50%;
+  background:#ffffff22;
+  border:2px solid #ffffff55;
+  pointer-events:auto;
+}
+#stick{
+  position:absolute;
+  left:35px;
+  top:35px;
+  width:55px;
+  height:55px;
+  border-radius:50%;
+  background:#ffffff66;
+}
+.action{
+  position:absolute;
+  width:70px;
+  height:70px;
+  border-radius:50%;
+  pointer-events:auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  text-align:center;
+}
+#attack{
+  right:25px;
+  bottom:35px;
+  background:#ef4444aa;
+}
+#powerBtn{
+  right:105px;
+  bottom:115px;
+  background:#8b5cf6aa;
+}
+#special{
+  right:25px;
+  bottom:125px;
+  background:#f59e0baa;
+}
+#gameover{
+  position:fixed;
+  inset:0;
+  z-index:20;
+  background:#000c;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div id="menu">
+  <h1>⚡ POWER RISE</h1>
+  <div class="subtitle">BATTLE V2</div>
+
+  <p>Choose your fighter</p>
+
+  <div class="characters">
+    <div class="char selected" data-char="Kai">
+      <div class="face"></div>
+      KAI
+    </div>
+
+    <div class="char" data-char="Blaze">
+      <div class="face"></div>
+      BLAZE
+    </div>
+
+    <div class="char" data-char="Nova">
+      <div class="face"></div>
+      NOVA
+    </div>
+  </div>
+
+  <button id="start">START BATTLE</button>
+
+  <p style="max-width:320px;color:#94a3b8">
+    Defeat the enemies, collect loot and become the strongest fighter.
+  </p>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div>❤️ HEALTH</div>
+  <div class="bar"><div id="health"></div></div>
+  <div>⚡ POWER</div>
+  <div class="bar"><div id="power"></div></div>
+  <div class="info">
+    ⚔️ Enemies: <span id="enemyCount">0</span>
+    &nbsp; 💰 Loot: <span id="lootCount">0</span>
+  </div>
+</div>
+
+<div id="controls">
+  <div id="joystick">
+    <div id="stick"></div>
+  </div>
+
+  <div id="attack" class="action">👊<br>ATTACK</div>
+  <div id="powerBtn" class="action">⚡<br>POWER</div>
+  <div id="special" class="action">💥<br>SPECIAL</div>
+</div>
+
+<div id="gameover">
+  <h1 id="result">VICTORY!</h1>
+  <p id="resultText"></p>
+  <button onclick="location.reload()">PLAY AGAIN</button>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+let W,H;
+function resize(){
+  W=canvas.width=innerWidth;
+  H=canvas.height=innerHeight;
+}
+addEventListener("resize",resize);
+resize();
+
+let running=false;
+let selected="Kai";
+
+const player={
+  x:500,
+  y:500,
+  r:22,
+  speed:3,
+  health:100,
+  power:100,
+  attackCooldown:0,
+  specialCooldown:0
+};
+
+let enemies=[];
+let loot=[];
+let bullets=[];
+let particles=[];
+
+let camera={x:0,y:0};
+
+const keys={};
+addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+document.querySelectorAll(".char").forEach(c=>{
+  c.addEventListener("click",()=>{
+    document.querySelectorAll(".char")
+      .forEach(x=>x.classList.remove("selected"));
+
+    c.classList.add("selected");
+    selected=c.dataset.char;
+  });
+});
+
+document.getElementById("start").onclick=()=>{
+  document.getElementById("menu").style.display="none";
+  running=true;
+  initGame();
+};
+
+function initGame(){
+
+  player.x=700;
+  player.y=700;
+  player.health=100;
+  player.power=100;
+
+  enemies=[];
+  loot=[];
+  bullets=[];
+  particles=[];
+
+  // Create enemies
+  for(let i=0;i<12;i++){
+    enemies.push({
+      x:200+Math.random()*1200,
+      y:200+Math.random()*1000,
+      r:20,
+      health:40+Math.random()*30,
+      speed:0.6+Math.random()*0.6,
+      attack:0,
+      type:i%3
+    });
+  }
+
+  // Create loot
+  for(let i=0;i<18;i++){
+    loot.push({
+      x:150+Math.random()*1500,
+      y:150+Math.random()*1200,
+      type:Math.random()<.5?"health":"power"
+    });
+  }
+
+  gameLoop();
+}
+
+function world(){
+
+  // Grass
+  ctx.fillStyle="#263b28";
+  ctx.fillRect(0,0,1800,1500);
+
+  // Roads
+  ctx.fillStyle="#39444a";
+  ctx.fillRect(0,600,1800,170);
+  ctx.fillRect(760,0,170,1500);
+
+  // Road markings
+  ctx.strokeStyle="#d4d4aa";
+  ctx.lineWidth=4;
+  ctx.setLineDash([30,25]);
+
+  ctx.beginPath();
+  ctx.moveTo(0,685);
+  ctx.lineTo(1800,685);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(845,0);
+  ctx.lineTo(845,1500);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  // Buildings
+  const buildings=[
+    [100,100,240,230],
+    [1150,100,300,220],
+    [100,900,280,260],
+    [1150,950,330,250],
+    [430,250,180,180],
+    [1030,550,190,180]
+  ];
+
+  buildings.forEach(b=>{
+    ctx.fillStyle="#172033";
+    ctx.fillRect(...b);
+
+    ctx.strokeStyle="#475569";
+    ctx.lineWidth=5;
+    ctx.strokeRect(...b);
+
+    ctx.fillStyle="#60a5fa";
+    for(let x=b[0]+25;x<b[0]+b[2]-20;x+=55){
+      for(let y=b[1]+25;y<b[1]+b[3]-20;y+=55){
+        ctx.fillRect(x,y,25,25);
+      }
+    }
+  });
+
+  // Trees
+  for(let i=0;i<45;i++){
+    let x=(i*317)%1750+20;
+    let y=(i*191)%1450+20;
+
+    if(Math.abs(x-845)<150 || Math.abs(y-685)<130) continue;
+
+    ctx.fillStyle="#51351f";
+    ctx.fillRect(x-5,y,10,25);
+
+    ctx.fillStyle="#166534";
+    ctx.beginPath();
+    ctx.arc(x,y,25,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawPlayer(){
+
+  ctx.save();
+  ctx.translate(player.x,player.y);
+
+  // shadow
+  ctx.fillStyle="#0008";
+  ctx.beginPath();
+  ctx.ellipse(0,20,25,10,0,0,Math.PI*2);
+  ctx.fill();
+
+  // body
+  ctx.fillStyle=
+    selected==="Kai" ? "#2563eb" :
+    selected==="Blaze" ? "#dc2626" : "#9333ea";
+
+  ctx.fillRect(-17,-2,34,35);
+
+  // head
+  ctx.fillStyle="#f2c29b";
+  ctx.beginPath();
+  ctx.arc(0,-20,18,0,Math.PI*2);
+  ctx.fill();
+
+  // hair
+  ctx.fillStyle="#111";
+  ctx.beginPath();
+  ctx.arc(0,-25,18,Math.PI,Math.PI*2);
+  ctx.fill();
+
+  // eyes
+  ctx.fillStyle="#111";
+  ctx.fillRect(-8,-22,4,4);
+  ctx.fillRect(5,-22,4,4);
+
+  ctx.restore();
+}
+
+function drawEnemy(e){
+
+  ctx.save();
+  ctx.translate(e.x,e.y);
+
+  ctx.fillStyle="#0007";
+  ctx.beginPath();
+  ctx.ellipse(0,18,23,9,0,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle=
+    e.type===0 ? "#991b1b" :
+    e.type===1 ? "#7c2d12" : "#581c87";
+
+  ctx.fillRect(-17,-2,34,32);
+
+  ctx.fillStyle="#e8b18a";
+  ctx.beginPath();
+  ctx.arc(0,-18,17,0,Math
